@@ -18,7 +18,6 @@ year = {2020}
 
 ### Prerequisites
 
-We use Tensorflow 1.15 for this implementation. Please [install CUDA](https://developer.nvidia.com/cuda-10.0-download-archive) if you want GPU support.   
 ```
 conda install pytorch torchvision
 
