@@ -1,8 +1,9 @@
 # Point-GNN
 
-This repository contains a reference implementation of our [Point-GNN: Graph Neural Network for 3D Object Detection in a Point Cloud](http://openaccess.thecvf.com/content_CVPR_2020/papers/Shi_Point-GNN_Graph_Neural_Network_for_3D_Object_Detection_in_a_CVPR_2020_paper.pdf), CVPR 2020. 
+This repository is the pytorch-version reimplementation of  [Point-GNN: Graph Neural Network for 3D Object Detection in a Point Cloud](http://openaccess.thecvf.com/content_CVPR_2020/papers/Shi_Point-GNN_Graph_Neural_Network_for_3D_Object_Detection_in_a_CVPR_2020_paper.pdf), CVPR 2020. 
+It is based on original CVPR paper and their [tensorflow-version codes](https://github.com/WeijingShi/Point-GNN/)
 
-If you find this code useful in your research, please consider citing our work:
+Thanks owe to authors. If you find this code useful in your research, please consider citing their work:
 ```
 @InProceedings{Point-GNN,
 author = {Shi, Weijing and Rajkumar, Ragunathan (Raj)},
