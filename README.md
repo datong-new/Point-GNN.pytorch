@@ -19,8 +19,10 @@ year = {2020}
 
 We use Tensorflow 1.15 for this implementation. Please [install CUDA](https://developer.nvidia.com/cuda-10.0-download-archive) if you want GPU support.   
 ```
-pip3 install --user tensorflow-gpu==1.15.0
+conda install pytorch torchvision
+
 ```
+Install torch-scatter according to your pytorch version following instructions in this url: https://github.com/rusty1s/pytorch_scatter
 
 To install other dependencies: 
 ```
@@ -63,9 +65,17 @@ We use the KITTI 3D Object Detection dataset. Please download the dataset from t
 
 Clone the repository recursively:
 ```
-git clone https://github.com/WeijingShi/Point-GNN.git --recursive
+git clone https://github.com/Shudeng/Point-GNN.pytorch --recursive
 ```
 
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+
+
+
+<!--
 ## Inference
 ### Run a checkpoint
 Test on the validation split:
@@ -161,9 +171,4 @@ You can use tensorboard to view the training and evaluation status.
 ```
 tensorboard --logdir=./train_dir
 ```
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
-
+-->
