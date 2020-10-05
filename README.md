@@ -68,6 +68,11 @@ Clone the repository recursively:
 git clone https://github.com/Shudeng/Point-GNN.pytorch --recursive
 ```
 
+### Training
+```
+bash train.sh
+```
+
 
 ## License
 

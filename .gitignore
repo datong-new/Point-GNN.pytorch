@@ -1,5 +1,6 @@
 checkpoints*
 checkpoints/
+saved_models
 checkpoints
 data
 *__pycache__*

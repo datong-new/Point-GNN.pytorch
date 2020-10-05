@@ -8,6 +8,9 @@ from kitty_dataset import DataProvider
 from model import *
 import numpy as np
 import argparse
+from util.metrics import recall_precisions, mAP
+from tqdm import trange
+from tqdm import tqdm
 
 
 
@@ -17,7 +20,7 @@ if __name__ == "__main__":
                        help='Path to train_config')
     parser.add_argument('config_path', type=str,
                        help='Path to config')
-    parser.add_argument('--device', type=str, default='cuda:3',
+    parser.add_argument('--device', type=str, default='cuda:2',
             help="Device for training, cuda or cpu")
     parser.add_argument('--batch_size', type=int, default=1,
             help='Batch size')
@@ -76,9 +79,19 @@ if __name__ == "__main__":
     epoches = 10
     NUM_TEST_SAMPLE = dataset.num_files
 
+    os.system("mkdir saved_models")
+
+
     for epoch in range(1, epoches):
+        recalls_list, precisions_list, mAP_list = {}, {}, {}
+        for i in range(NUM_CLASSES): recalls_list[i], precisions_list[i], mAP_list[i] = [], [], []
+
         frame_idx_list = np.random.permutation(NUM_TEST_SAMPLE)
-        for batch_idx in range(0, NUM_TEST_SAMPLE-batch_size+1, batch_size):
+
+        pbar = tqdm(list(range(0, NUM_TEST_SAMPLE-batch_size+1, batch_size)), desc="start training", leave=True)
+
+        for batch_idx in pbar:
+        #for batch_idx in range(0, NUM_TEST_SAMPLE-batch_size+1, batch_size):
             batch_frame_idx_list = frame_idx_list[batch_idx: batch_idx+batch_size]
             batch = data_provider.provide_batch(batch_frame_idx_list)
             input_v, vertex_coord_list, keypoint_indices_list, edges_list, \
@@ -95,13 +108,35 @@ if __name__ == "__main__":
                     cls_labels, encoded_boxes, valid_boxes = batch
 
             logits, box_encoding = model(batch, is_training=True)
+            predictions = torch.argmax(logits, dim=1)
+
             loss_dict = model.loss(logits, cls_labels, box_encoding, encoded_boxes, valid_boxes)
             t_cls_loss, t_loc_loss, t_reg_loss = loss_dict['cls_loss'], loss_dict['loc_loss'], loss_dict['reg_loss']
-            print(f"t_cls_loss: {t_cls_loss}\t t_loc_loss: {t_loc_loss}\t t_reg_loss: {t_reg_loss}")
+            pbar.set_description(f"epoch: {epoch}\t t_cls_loss: {t_cls_loss}\t t_loc_loss: {t_loc_loss}\t t_reg_loss: {t_reg_loss}")
             t_total_loss = t_cls_loss + t_loc_loss + t_reg_loss
             optimizer.zero_grad()
             t_total_loss.backward()
             optimizer.step()
+
+            # record metrics
+            recalls, precisions = recall_precisions(cls_labels, predictions, NUM_CLASSES)
+            #mAPs = mAP(cls_labels, logits, NUM_CLASSES)
+            mAPs = mAP(cls_labels, logits.sigmoid(), NUM_CLASSES)
+            for i in range(NUM_CLASSES):
+                recalls_list[i] += [recalls[i]]
+                precisions_list[i] += [precisions[i]]
+                mAP_list[i] += [mAPs[i]]
+
+        # print metrics
+        for class_idx in range(NUM_CLASSES):
+            print(f"recalls_list: {recalls_list[i]}")
+            print(f"precisions_list: {precisions_list[i]}")
+            print(f"mAP_list: {mAP_list[i]}")
+            print(f"class_idx:{class_idx}, recall: {np.mean(recalls_list[i])}, precision: {np.mean(precisions_list[i])}, mAP: {np.mean(mAP_list[i])}")
+
+        # save model
+        torch.save(model.state_dict(), "saved_models/model_{}.pt".format(epoch))
+
 
 
 
