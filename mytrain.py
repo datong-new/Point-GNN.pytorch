@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
             loss_dict = model.loss(logits, cls_labels, box_encoding, encoded_boxes, valid_boxes)
             t_cls_loss, t_loc_loss, t_reg_loss = loss_dict['cls_loss'], loss_dict['loc_loss'], loss_dict['reg_loss']
-            pbar.set_description(f"epoch: {epoch}\t t_cls_loss: {t_cls_loss}\t t_loc_loss: {t_loc_loss}\t t_reg_loss: {t_reg_loss}")
+            pbar.set_description(f"{epoch}, t_cls_loss: {t_cls_loss}, t_loc_loss: {t_loc_loss}, t_reg_loss: {t_reg_loss}")
             t_total_loss = t_cls_loss + t_loc_loss + t_reg_loss
             optimizer.zero_grad()
             t_total_loss.backward()
@@ -129,10 +129,7 @@ if __name__ == "__main__":
 
         # print metrics
         for class_idx in range(NUM_CLASSES):
-            print(f"recalls_list: {recalls_list[i]}")
-            print(f"precisions_list: {precisions_list[i]}")
-            print(f"mAP_list: {mAP_list[i]}")
-            print(f"class_idx:{class_idx}, recall: {np.mean(recalls_list[i])}, precision: {np.mean(precisions_list[i])}, mAP: {np.mean(mAP_list[i])}")
+            print(f"class_idx:{class_idx}, recall: {np.mean(recalls_list[class_idx])}, precision: {np.mean(precisions_list[class_idx])}, mAP: {np.mean(mAP_list[class_idx])}")
 
         # save model
         torch.save(model.state_dict(), "saved_models/model_{}.pt".format(epoch))

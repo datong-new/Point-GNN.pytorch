@@ -301,7 +301,7 @@ class MultiLayerFastLocalGraphModelV2(nn.Module):
         loss_dict['classwise_loc_loss'] = classwise_loc_loss
 
         params = torch.cat([x.view(-1) for x in self.parameters()])
-        reg_loss = torch.norm(params, 1)
+        reg_loss = torch.mean(params.abs())
 
         loss_dict.update({'cls_loss': cls_loss, 'loc_loss': loc_loss,
             'reg_loss': reg_loss,
