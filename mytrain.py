@@ -6,7 +6,7 @@ import os
 from dataset.kitti_dataset import KittiDataset
 from kitty_dataset import DataProvider
 from model import *
-
+import numpy as np
 import argparse
 
 
@@ -17,6 +17,10 @@ if __name__ == "__main__":
                        help='Path to train_config')
     parser.add_argument('config_path', type=str,
                        help='Path to config')
+    parser.add_argument('--device', type=str, default='cuda:3',
+            help="Device for training, cuda or cpu")
+    parser.add_argument('--batch_size', type=int, default=1,
+            help='Batch size')
     parser.add_argument('--dataset_root_dir', type=str, default='../dataset/kitti/',
                        help='Path to KITTI dataset. Default="../dataset/kitti/"')
     parser.add_argument('--dataset_split_file', type=str,
@@ -26,6 +30,8 @@ if __name__ == "__main__":
                        '/train_config["train_dataset"]"')
     
     args = parser.parse_args()
+    batch_size = args.batch_size
+    device = args.device
     train_config = load_train_config(args.train_config_path)
     DATASET_DIR = args.dataset_root_dir
     config_complete = load_config(args.config_path)
@@ -64,8 +70,40 @@ if __name__ == "__main__":
     model = MultiLayerFastLocalGraphModelV2(num_classes=NUM_CLASSES,
                 box_encoding_len=BOX_ENCODING_LEN, mode='train',
                 **config['model_kwargs'])
+    model = model.to(device)
 
-    logits, box_encoding = model(batch, is_training=True)
-    loss_dict = model.loss(logits, cls_labels, box_encoding, encoded_boxes, valid_boxes)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    epoches = 10
+    NUM_TEST_SAMPLE = dataset.num_files
+
+    for epoch in range(1, epoches):
+        frame_idx_list = np.random.permutation(NUM_TEST_SAMPLE)
+        for batch_idx in range(0, NUM_TEST_SAMPLE-batch_size+1, batch_size):
+            batch_frame_idx_list = frame_idx_list[batch_idx: batch_idx+batch_size]
+            batch = data_provider.provide_batch(batch_frame_idx_list)
+            input_v, vertex_coord_list, keypoint_indices_list, edges_list, \
+                    cls_labels, encoded_boxes, valid_boxes = batch
+
+            new_batch = []
+            for item in batch:
+                if not isinstance(item, torch.Tensor):
+                    item = [x.to(device) for x in item]
+                else: item = item.to(device)
+                new_batch += [item]
+            batch = new_batch
+            input_v, vertex_coord_list, keypoint_indices_list, edges_list, \
+                    cls_labels, encoded_boxes, valid_boxes = batch
+
+            logits, box_encoding = model(batch, is_training=True)
+            loss_dict = model.loss(logits, cls_labels, box_encoding, encoded_boxes, valid_boxes)
+            t_cls_loss, t_loc_loss, t_reg_loss = loss_dict['cls_loss'], loss_dict['loc_loss'], loss_dict['reg_loss']
+            print(f"t_cls_loss: {t_cls_loss}\t t_loc_loss: {t_loc_loss}\t t_reg_loss: {t_reg_loss}")
+            t_total_loss = t_cls_loss + t_loc_loss + t_reg_loss
+            optimizer.zero_grad()
+            t_total_loss.backward()
+            optimizer.step()
+
+
+
 
 

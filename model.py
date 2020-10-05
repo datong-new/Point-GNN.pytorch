@@ -65,7 +65,7 @@ def focal_loss_sigmoid(labels, logits, alpha=0.5, gamma=2):
      prob = logits.sigmoid()
      labels = torch.nn.functional.one_hot(labels.squeeze().long(), num_classes=prob.shape[1])
 
-     cross_ent = max(logits, 0) - logits * labels + torch.log(1+torch.exp(-torch.abs(logits)))
+     cross_ent = torch.clamp(logits, min=0) - logits * labels + torch.log(1+torch.exp(-torch.abs(logits)))
      prob_t = (labels*prob) + (1-labels) * (1-prob)
      modulating = torch.pow(1-prob_t, gamma)
      alpha_weight = (labels*alpha)+(1-labels)*(1-alpha)
@@ -189,6 +189,9 @@ class ClassAwarePredictor(nn.Module):
         super(ClassAwarePredictor, self).__init__()
         self.cls_fn = multi_layer_fc_fn(Ks=[300, 64], num_layers=2, num_classes=num_classes, is_logits=True)
         self.loc_fns = nn.ModuleList()
+        self.num_classes = num_classes
+        self.box_encoding_len = box_encoding_len
+
         for i in range(num_classes):
             self.loc_fns += [
                     multi_layer_fc_fn(Ks=[300, 300, 64], num_layers=3, num_classes=box_encoding_len, is_logits=True)]
@@ -221,18 +224,6 @@ class MultiLayerFastLocalGraphModelV2(nn.Module):
     def forward(self, batch, is_training):
         input_v, vertex_coord_list, keypoint_indices_list, edges_list, \
             cls_labels, encoded_boxes, valid_boxes = batch
-        print(f"input_v: {input_v.shape}")
-        for i, vertex_coord in enumerate(vertex_coord_list):
-            print(f"vertex_coord_list: {i}: {vertex_coord.shape}")
-        for i, edge in enumerate(edges_list):
-            print(f"edge {i} : {edge.shape}")
-        for i, indices in enumerate(keypoint_indices_list):
-            print(f"indices: {i}: {indices.shape}")
-        print(f"cls_labels: {cls_labels.shape}")
-        print(f"encoded_boxes: {encoded_boxes.shape}")
-        print(f"valid_boxes: {valid_boxes.shape}")
-
-        
 
         point_features, point_coordinates, keypoint_indices, set_indices = input_v, vertex_coord_list[0], keypoint_indices_list[0], edges_list[0]
         point_features = self.point_set_pooling(point_features, point_coordinates, keypoint_indices, set_indices)
@@ -241,10 +232,7 @@ class MultiLayerFastLocalGraphModelV2(nn.Module):
         point_coordinates, keypoint_indices, set_indices = vertex_coord_list[1], keypoint_indices_list[1], edges_list[1]
         for i, graph_net in enumerate(self.graph_nets):
             point_features = graph_net(point_features, point_coordinates, keypoint_indices, set_indices)
-            print(f"{i}, point_features: {point_features.shape}")
         logits, box_encodings = self.predictor(point_features)
-        print(f"logits: {logits.shape}")
-        print(f"box_encodings: {box_encodings.shape}")
         return logits, box_encodings
 
     def postprocess(self, logits):
@@ -276,19 +264,48 @@ class MultiLayerFastLocalGraphModelV2(nn.Module):
         num_valid_endpoint is the number of output vertices that have a valid
         bounding box. Those numbers are useful for weighting during batching.
         """
+        """
         print(f"logits: {logits.shape}")
         print(f"labels: {labels.shape}")
         print(f"pred_box: {pred_box.shape}")
         print(f"gt_box: {gt_box.shape}")
         print(f"valid_box: {valid_box.shape}")
+        """
 
         point_loss = focal_loss_sigmoid(labels,logits) # same shape as logits, N x C
         num_endpoint = point_loss.shape[0]
         cls_loss = cls_loss_weight * point_loss.mean()
 
-        batch_idx = torch.range(0, pred_box.shape[0])
-        batch_idx = batch_idx.unsqueeze(1)
+        batch_idx = torch.arange(0, pred_box.shape[0])
+        batch_idx = batch_idx.unsqueeze(1).to(labels.device)
         batch_idx = torch.cat([batch_idx, labels], dim=1)
+        pred_box = pred_box[batch_idx[:, 0], batch_idx[:, 1]]
+        huger_loss = nn.SmoothL1Loss(reduction="none")
+        all_loc_loss = huger_loss(pred_box, gt_box.squeeze())
+        all_loc_loss = all_loc_loss * valid_box.squeeze(1)
+
+        num_valid_endpoint = valid_box.sum()
+        mean_loc_loss = all_loc_loss.mean(dim=1)
+
+        if num_valid_endpoint==0:
+            loc_loss = 0
+        else: loc_loss = mean_loc_loss.sum() / num_valid_endpoint
+        classwise_loc_loss = []
 
 
+        for class_idx in range(self.num_classes):
+            class_mask = torch.nonzero(labels==int(class_idx), as_tuple=False)
+            l = mean_loc_loss[class_mask]
+            classwise_loc_loss += [l]
+        loss_dict = {}
+        loss_dict['classwise_loc_loss'] = classwise_loc_loss
 
+        params = torch.cat([x.view(-1) for x in self.parameters()])
+        reg_loss = torch.norm(params, 1)
+
+        loss_dict.update({'cls_loss': cls_loss, 'loc_loss': loc_loss,
+            'reg_loss': reg_loss,
+            'num_end_point': num_endpoint,
+            'num_valid_endpoint': num_valid_endpoint
+            })
+        return loss_dict
