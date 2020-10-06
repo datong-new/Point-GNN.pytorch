@@ -20,10 +20,12 @@ if __name__ == "__main__":
                        help='Path to train_config')
     parser.add_argument('config_path', type=str,
                        help='Path to config')
-    parser.add_argument('--device', type=str, default='cuda:2',
+    parser.add_argument('--device', type=str, default='cuda:0',
             help="Device for training, cuda or cpu")
     parser.add_argument('--batch_size', type=int, default=1,
             help='Batch size')
+    parser.add_argument('--epoches', type=int, default=100,
+            help='Training epoches')
     parser.add_argument('--dataset_root_dir', type=str, default='../dataset/kitti/',
                        help='Path to KITTI dataset. Default="../dataset/kitti/"')
     parser.add_argument('--dataset_split_file', type=str,
@@ -33,6 +35,7 @@ if __name__ == "__main__":
                        '/train_config["train_dataset"]"')
     
     args = parser.parse_args()
+    epoches = args.epoches
     batch_size = args.batch_size
     device = args.device
     train_config = load_train_config(args.train_config_path)
@@ -76,7 +79,6 @@ if __name__ == "__main__":
     model = model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    epoches = 10
     NUM_TEST_SAMPLE = dataset.num_files
 
     os.system("mkdir saved_models")
