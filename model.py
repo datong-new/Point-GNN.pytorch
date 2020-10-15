@@ -161,7 +161,7 @@ class GraphNetAutoCenter(nn.Module):
 
         # Gather the source vertex of the edges
         s_vertex_features = input_vertex_features[edges[:, 0]]
-        s_vertex_coordinates = input_vertex_coordinates[edges[:, 1]]
+        s_vertex_coordinates = input_vertex_coordinates[edges[:, 0]]
 
         if self.auto_offset:
             offset = self.auto_offset_fn(input_vertex_features)
@@ -171,7 +171,7 @@ class GraphNetAutoCenter(nn.Module):
         d_vertex_coordinates = input_vertex_coordinates[edges[:, 1]]
 
         # Prepare initial edge features
-        edge_features = torch.cat([s_vertex_features, s_vertex_coordinates - s_vertex_coordinates], dim=-1)
+        edge_features = torch.cat([s_vertex_features, s_vertex_coordinates - d_vertex_coordinates], dim=-1)
         
         # Extract edge features
         edge_features = self.edge_feature_fn(edge_features)
