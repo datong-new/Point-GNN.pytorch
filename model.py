@@ -112,7 +112,10 @@ class PointSetPooling(nn.Module):
         point_set_features = point_features[set_indices[:, 0]]
         point_set_coordinates = point_coordinates[set_indices[:, 0]]
         point_set_keypoint_indices = keypoint_indices[set_indices[:, 1]]
-        point_set_keypoint_coordinates = point_features[point_set_keypoint_indices[:, 0]]
+
+        #point_set_keypoint_coordinates_1 = point_features[point_set_keypoint_indices[:, 0]]
+        point_set_keypoint_coordinates = point_coordinates[point_set_keypoint_indices[:, 0]]
+
         point_set_coordinates = point_set_coordinates - point_set_keypoint_coordinates
         point_set_features = torch.cat([point_set_features, point_set_coordinates], axis=-1)
 
